@@ -20,18 +20,47 @@ impl TaxBracketDefinition {
 
 
 fn main() {
-    // Get salaray as f64 from user
-    print!("Enter your salary: ");
+    // Get salary as f64 from user
+    let salary = prompt("Enter your salary: ");
+
+    // Get tax brackets
+    let tax_brackets = get_tax_brackets();
+
+    println!("");
+
+    // Compute federal income tax
+    let federal_income_tax = compute_income_tax(salary, tax_brackets);
+
+    // Compute medicare and social security
+    let medicare = 0.0145 * salary;
+    let social_security = 0.062 * salary;
+
+    println!("");
+    println!("Federal income tax: ${:10.2}", federal_income_tax);
+    println!("Medicare:           ${:10.2}", medicare);
+    println!("Social security:    ${:10.2}", social_security);
+    println!("");
+    println!("Total tax is ${:.2}", federal_income_tax + medicare + social_security);
+}
+
+
+fn prompt(msg: &str) -> f64 {
+    // Prompt user
+    print!("{}", msg);
     io::stdout().flush().unwrap();
 
+    // Initialize input string buffer and read user input
     let mut salary = String::new();
-
     io::stdin()
         .read_line(&mut salary)
         .expect("Failed to read line");
 
-    let salary: f64 = salary.trim().parse().expect("Please type a number!");
+    // Parse as float adn return
+    let salary = salary.trim().parse().expect("Error. Could not parse input as f64.");
+    salary
+}
 
+fn get_tax_brackets() -> Vec<TaxBracketDefinition> {
     let r10 = TaxBracketDefinition::new(0.10, 0.0, 22000.0);
     let r12 = TaxBracketDefinition::new(0.12, 22001.0, 89450.0);
     let r22 = TaxBracketDefinition::new(0.22, 89451.0, 190750.0);
@@ -49,10 +78,10 @@ fn main() {
         r35,
         r37,
     ];
+    tax_brackets
+}
 
-    println!("");
-
-    // Compute federal income tax
+fn compute_income_tax(salary: f64, tax_brackets: Vec<TaxBracketDefinition>) -> f64 {
     println!("Federal income tax breakdown:");
     let mut remaining = salary;
     let mut total_tax = 0.0;
@@ -74,15 +103,5 @@ fn main() {
             break;
         }
     }
-
-    // Compute medicare and social security
-    let medicare = 0.0145 * salary;
-    let social_security = 0.062 * salary;
-
-    println!("");
-    println!("Federal income tax: ${:10.2}", total_tax);
-    println!("Medicare:           ${:10.2}", medicare);
-    println!("Social security:    ${:10.2}", social_security);
-    println!("");
-    println!("Total tax is ${:.2}", total_tax + medicare + social_security);
+    total_tax
 }
