@@ -1,36 +1,35 @@
+use std::fmt::Debug;
 use std::io;
 use std::io::Write;
+use std::str::FromStr;
+use crate::us_tax::MaritalStatus;
+use crate::tax_context::TaxContext;
 
-#[derive(Debug)]
-struct TaxBracketDefinition {
-    rate: f64,
-    lower_bound: f64,
-    upper_bound: f64
-}
-
-impl TaxBracketDefinition {
-    fn new(rate: f64, lower_bound: f64, upper_bound: f64) -> TaxBracketDefinition {
-        TaxBracketDefinition {
-            rate,
-            lower_bound,
-            upper_bound
-        }
-    }
-}
+mod us_tax;
+mod tax_context;
 
 
 fn main() {
-    // Get salary as f64 from user
-    let salary = prompt("Enter your salary: ");
-
-    // Get tax brackets
-    let tax_brackets = get_tax_brackets();
-
+    // Get necessary info from user
+    let mstatus = prompt::<i32>("Status (1 - Single, 2 - Married filing jointly): ");
+    let mstatus = if mstatus == 1 { 
+        MaritalStatus::Single 
+    } else {
+        MaritalStatus::MarriedFilingJointly 
+    };
+    let salary = prompt::<f64>("Enter your total income: ");
     println!("");
 
-    // Compute federal income tax
-    let federal_income_tax = compute_income_tax(salary, tax_brackets);
+    let tax_ctx = TaxContext {
+        incomes: vec![salary],
+        status: mstatus
+    };
 
+    // Get tax brackets
+    //let tax_brackets = us_tax::get_tax_brackets(mstatus);
+
+    // Compute federal income tax
+    let federal_income_tax = us_tax::compute_income_tax(&tax_ctx);
     // Compute medicare and social security
     let medicare = 0.0145 * salary;
     let social_security = 0.062 * salary;
@@ -43,65 +42,41 @@ fn main() {
     println!("Total tax is ${:.2}", federal_income_tax + medicare + social_security);
 }
 
-
-fn prompt(msg: &str) -> f64 {
+/*
+ * Prompts the user with a string message and converts their response to a specified numeric type T. 
+ */
+fn prompt<T>(msg: &str) -> T where T: FromStr, <T as FromStr>::Err: Debug {
     // Prompt user
     print!("{}", msg);
     io::stdout().flush().unwrap();
 
     // Initialize input string buffer and read user input
     let mut salary = String::new();
+    
     io::stdin()
         .read_line(&mut salary)
         .expect("Failed to read line");
 
     // Parse as float adn return
-    let salary = salary.trim().parse().expect("Error. Could not parse input as f64.");
+    let salary = numeric_converter(&salary);
     salary
 }
 
-fn get_tax_brackets() -> Vec<TaxBracketDefinition> {
-    let r10 = TaxBracketDefinition::new(0.10, 0.0, 22000.0);
-    let r12 = TaxBracketDefinition::new(0.12, 22001.0, 89450.0);
-    let r22 = TaxBracketDefinition::new(0.22, 89451.0, 190750.0);
-    let r24 = TaxBracketDefinition::new(0.24, 190751.0, 364200.0);
-    let r32 = TaxBracketDefinition::new(0.32, 364201.0, 462500.0);
-    let r35 = TaxBracketDefinition::new(0.35, 462501.0, 693750.0);
-    let r37 = TaxBracketDefinition::new(0.37, 693751.0, f64::INFINITY);
-
-    let tax_brackets = vec![
-        r10,
-        r12,
-        r22,
-        r24,
-        r32,
-        r35,
-        r37,
-    ];
-    tax_brackets
+/**
+ * Performs the generic numeric conversion needed for the prompt function.
+ * Takes in a string and converts it to the specified numeric type T.
+ */
+fn numeric_converter<T>(s: &str) -> T where T: FromStr, <T as FromStr>::Err: Debug {
+    let result: T = s.trim().parse().unwrap();
+    result
 }
 
-fn compute_income_tax(salary: f64, tax_brackets: Vec<TaxBracketDefinition>) -> f64 {
-    println!("Federal income tax breakdown:");
-    let mut remaining = salary;
-    let mut total_tax = 0.0;
-    for bracket in tax_brackets.iter() {
-        // println!("{:?}", bracket);
-        if salary > bracket.upper_bound {
-            let delta = bracket.upper_bound - bracket.lower_bound;
-            let tax = bracket.rate * delta;
-            total_tax += tax;
-            remaining = remaining - (bracket.upper_bound - bracket.lower_bound);
-            println!("  Tax @ {:.1}% rate is ${:.2} (based on ${:.2}. ${:.2} remaining)", 
-                bracket.rate * 100.00, tax, delta, remaining);
-            
-        } else {
-            let tax = bracket.rate * remaining;
-            total_tax += tax;
-            println!("  Tax @ {:.1}% rate is ${:.2} (based on ${:.2}. ${:.2} remaining)", 
-                bracket.rate * 100.00, tax, remaining, 0.00);
-            break;
-        }
-    }
-    total_tax
+
+#[test]
+fn test_generic_numeric_converter() {
+    assert_eq!(numeric_converter::<f64>("1000.0"), 1000.0);
+    assert_eq!(numeric_converter::<i32>("21"), 21);
+    assert_eq!(numeric_converter::<u32>("21"), 21);
 }
+
+
